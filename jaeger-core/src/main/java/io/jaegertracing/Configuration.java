@@ -154,6 +154,8 @@ public class Configuration {
    *  Opt-in to use 128 bit traceIds. By default, uses 64 bits.
    */
   public static final String JAEGER_TRACEID_128BIT = JAEGER_PREFIX + "TRACEID_128BIT";
+  
+  public static final String JAEGER_USE_MDCSCOPE = JAEGER_PREFIX + "USE_WITH_MDCSCOPE";
 
   /**
    * The supported trace context propagation formats.
@@ -225,7 +227,7 @@ public class Configuration {
     }
     if (metricsFactory == null) {
       metricsFactory = loadMetricsFactory();
-    }
+    }if(!getProperty(JAEGER_USE_MDCSCOPE).equals("YES")) {
     Metrics metrics = new Metrics(metricsFactory);
     Reporter reporter = reporterConfig.getReporter(metrics);
     Sampler sampler = samplerConfig.createSampler(serviceName, metrics);
@@ -238,7 +240,23 @@ public class Configuration {
       builder = builder.withTraceId128Bit();
     }
     codecConfig.apply(builder);
+    }else {
+    	Metrics metrics = new Metrics(metricsFactory);
+        Reporter reporter = reporterConfig.getReporter(metrics);
+        Sampler sampler = samplerConfig.createSampler(serviceName, metrics);
+        JaegerTracer.Builder builder = createTracerBuilder(serviceName)
+        	.withScopeManager(new MDCScopeManager.Builder().build())
+            .withSampler(sampler)
+            .withReporter(reporter)
+            .withMetrics(metrics)
+            .withTags(tracerTags);
+        if (useTraceId128Bit) {
+          builder = builder.withTraceId128Bit();
+        }
+        codecConfig.apply(builder);
+    }
     return builder;
+    
   }
 
   protected JaegerTracer.Builder createTracerBuilder(String serviceName) {
